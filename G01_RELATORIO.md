@@ -101,8 +101,15 @@ token/escopo diferente do da conta logada no navegador, por isso nunca enxergou 
 criados pelo Product Owner nem os criados por ela mesma). O primeiro deploy ficou em 404 porque
 a branch de produção padrão (`main`) só tinha o placeholder inicial; resolvido fazendo merge de
 `v2-g01-foundation` em `main` (ver desvio registrado no topo deste relatório). Projeto Vercel
-ativo, deploy de produção a partir de `main`, domínio `*.vercel.app` gerado automaticamente.
-Não reutilizamos nenhum projeto Vercel da V1.
+ativo, deploy de produção a partir de `main`.
+
+URL de deploy confirmada pelo Product Owner (após o merge para `main`):
+`https://buildsmart-v2-67nokozta-comercialgrupoexclusive-7249s-projects.vercel.app/`
+Não foi possível verificar esta URL programaticamente nesta sessão (a integração Vercel via
+MCP não enxerga este projeto — mesmo problema de escopo de conta descrito acima — e o acesso
+de rede direto a domínios `*.vercel.app` está bloqueado pelo proxy de saída desta sessão);
+registrado com base na confirmação visual do Product Owner. Não reutilizamos nenhum projeto
+Vercel da V1.
 
 ### G01.7 — CI
 Criado `.github/workflows/ci.yml` na raiz deste repositório. O workflow:
