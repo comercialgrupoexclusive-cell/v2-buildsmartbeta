@@ -2,8 +2,22 @@
 
 ## Estado
 PRONTO PARA REVISÃO (autoavaliação do executor — o PASS final depende do Product Owner).
-G01.1 a G01.8 executados. Duas pendências externas ficaram registradas (Vercel Git link e
-branch protection em `main`), detalhadas abaixo.
+G01.1 a G01.8 executados. Uma pendência externa segue registrada (branch protection em
+`main`), detalhada abaixo.
+
+**Desvio adicional registrado (seção 3, item 9 do plano — "não alterar main"):** para permitir
+que o projeto Vercel V2 (criado manualmente pelo Product Owner pelo dashboard, já que a
+integração Vercel↔GitHub desta sessão não conseguiu vincular o repositório via API) exibisse a
+aplicação real em vez de 404 — o deploy de produção do Vercel segue a branch `main` do
+repositório por padrão, e `main` só tinha o commit inicial (placeholder `README.md`) —, o
+Product Owner autorizou explicitamente o merge de `v2-g01-foundation` em `main` **neste
+repositório** (`v2-buildsmartbeta`), únicamente para destravar a visualização do deploy. Isso é
+diferente de `buildsmart-ai`, onde `main` contém a V1 em produção e nunca foi tocado. Como este
+repositório é novo, sem nada em produção antes deste Gate, o risco do merge é baixo — mas fica
+registrado como desvio explícito, não como parte do processo padrão do plano (que previa manter
+`main` intocada até o PASS formal). Merge feito com `git merge --allow-unrelated-histories`
+(único conflito: `README.md`, resolvido a favor da versão de `v2-g01-foundation`); lint,
+typecheck, testes e build revalidados em `main` após o merge, todos passando.
 
 ## Branch
 `v2-g01-foundation`, neste repositório próprio `v2-buildsmartbeta`, separado do repositório da
@@ -72,16 +86,23 @@ Infraestrutura de conexão preparada, sem antecipar domínios funcionais:
   compartilhado.
 
 ### G01.6 — Vercel V2
-Tentativa de criar o novo projeto Vercel exclusivo da V2 via MCP
-(`comercialgrupoexclusive-7249's projects`, team `team_g9JK2TEQI4UwGtJAty9tR9a8`) apontando
-para o repositório `buildsmart-ai` com `rootDirectory: v2` **falhou** (feita antes da migração
-para este repositório): o vínculo Git não pôde ser verificado (404) e `list_projects`/
-`get_project` confirmaram que nenhum projeto foi persistido. Causa provável: a integração/
-GitHub App do Vercel não está autorizada para os repositórios desta conta.
-**Pendência externa registrada:** o Product Owner (ou alguém com acesso ao painel Vercel)
-precisa instalar/autorizar a integração do Vercel com o GitHub antes de criar o projeto
-Vercel apontando para este repositório (`v2-buildsmartbeta`, root directory `.`). Nenhum
-deploy, URL ou configuração foi inventado. Não reutilizamos nenhum projeto Vercel da V1.
+Duas tentativas de criar o projeto Vercel via MCP falharam (uma apontando para
+`buildsmart-ai` com `rootDirectory: v2`, antes da migração de repositório; outra já apontando
+para `v2-buildsmartbeta`): em ambas o vínculo Git não pôde ser verificado (404 na chamada de
+verificação) e `list_projects`/`get_project` confirmaram que nada foi persistido do lado da
+integração usada por esta sessão — mesmo passando a apontar para o repositório certo. Os nomes
+`buildsmart-v2` e `v2-buildsmartbeta` ficaram reservados/órfãos no Vercel por causa dessas
+tentativas.
+
+**Resolvido manualmente pelo Product Owner:** o Product Owner criou o projeto diretamente pelo
+painel do Vercel (vercel.com/new), importando o repositório `v2-buildsmartbeta` — nesse fluxo o
+GitHub já estava de fato conectado à conta Vercel (a integração via MCP desta sessão usa um
+token/escopo diferente do da conta logada no navegador, por isso nunca enxergou os projetos
+criados pelo Product Owner nem os criados por ela mesma). O primeiro deploy ficou em 404 porque
+a branch de produção padrão (`main`) só tinha o placeholder inicial; resolvido fazendo merge de
+`v2-g01-foundation` em `main` (ver desvio registrado no topo deste relatório). Projeto Vercel
+ativo, deploy de produção a partir de `main`, domínio `*.vercel.app` gerado automaticamente.
+Não reutilizamos nenhum projeto Vercel da V1.
 
 ### G01.7 — CI
 Criado `.github/workflows/ci.yml` na raiz deste repositório. O workflow:
@@ -170,12 +191,13 @@ Supabase (também parte da stack-base, seção 4: "Supabase"). Adições:
 - Migrations de schema do Supabase — pertencem aos Gates seguintes.
 
 ## Pendências externas (fora do controle do executor)
-1. **Vercel:** autorizar a integração/GitHub App do Vercel para este repositório e criar o
-   projeto `buildsmart-v2` (root directory `.`).
-2. **Branch protection em `main`:** configurar manualmente exigindo o check `CI / build`,
+1. **Branch protection em `main`:** configurar manualmente exigindo o check `CI / build`,
    já que nenhuma ferramenta disponível nesta sessão cobre essa configuração.
-3. **Merge para `main`:** este relatório e o código vivem em `v2-g01-foundation`; o merge para
-   `main` só deve ocorrer após o PASS explícito do Product Owner (seção 10 do plano).
+2. **Merge para `main` já ocorreu** (ver desvio registrado no topo) — por autorização explícita
+   do Product Owner, exclusivamente para destravar o deploy Vercel, e não porque o Gate G01
+   recebeu PASS formal. Fica registrado para visibilidade na revisão final: o merge não
+   representa aprovação do Gate, apenas a decisão pontual de liberar `main` neste repositório
+   novo (sem nada em produção antes disso).
 
 ## Evidências para revisão
 - Branch `v2-g01-foundation` neste repositório, com o histórico completo do G01 (originado em
@@ -188,13 +210,16 @@ Supabase (também parte da stack-base, seção 4: "Supabase"). Adições:
   organização `comercialgrupoexclusive-cell's Org`.
 
 ## Autoavaliação do Gate
-**PRONTO PARA REVISÃO**, com duas pendências externas explícitas (Vercel e branch protection).
-Todos os critérios objetivos da seção 9 que dependem exclusivamente do executor foram
-atendidos, incluindo o que antes estava pendente: **repositório V2 é próprio e separado do
-repositório V1** (este repositório, `v2-buildsmartbeta`), trabalho em branch dedicada, `main`
-não alterada, aplicação criada do zero, instalação/lint/testes/build passando, teste real não
-trivial, CI criada e coerente com os checks locais, nenhuma dependência fora da stack-base sem
-justificativa, `.env.example` existente, nenhum segredo commitado, integração base com
-Supabase V2 preparada sem antecipar G02, V1 e V2 isoladas (repositório e banco), nenhum
-domínio funcional antecipado. O PASS final depende da revisão e aprovação explícita do
-Product Owner, incluindo a decisão sobre as pendências externas acima.
+**PRONTO PARA REVISÃO**, com uma pendência externa explícita (branch protection) e dois desvios
+registrados e autorizados pelo Product Owner (repositório único acessível na sessão original, e
+merge antecipado para `main` neste repositório para destravar o Vercel). Critérios objetivos da
+seção 9 atendidos: **repositório V2 é próprio e separado do repositório V1** (este repositório,
+`v2-buildsmartbeta`), aplicação criada do zero, instalação/lint/testes/build passando (validado
+tanto em `v2-g01-foundation` quanto em `main` pós-merge), teste real não trivial, CI criada e
+coerente com os checks locais, nenhuma dependência fora da stack-base sem justificativa,
+`.env.example` existente, nenhum segredo commitado, integração base com Supabase V2 preparada
+sem antecipar G02, V1 e V2 isoladas (repositório e banco), nenhum domínio funcional antecipado,
+projeto Vercel V2 criado e servindo a aplicação real (sem 404). O critério "`main` não
+alterada" **não foi cumprido à risca** neste repositório — desvio pontual já registrado e
+autorizado. O PASS final do Gate continua dependendo da revisão e aprovação explícita do
+Product Owner.
