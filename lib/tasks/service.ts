@@ -19,13 +19,18 @@ function assertDates(startAt?: string | null, dueAt?: string | null): void {
   }
 }
 
+export function canTransitionTaskStatus(from: TaskStatus, to: TaskStatus): boolean {
+  if (from === to) return true;
+  if (from === 'COMPLETED') return to === 'IN_PROGRESS';
+  if (from === 'CANCELED') return to === 'TO_DO';
+  return true;
+}
+
 function assertTransition(from: TaskStatus, to: TaskStatus): void {
-  if (from === to) return;
-  if (from === 'COMPLETED' && to !== 'IN_PROGRESS') {
-    throw new Error('COMPLETED may only transition to IN_PROGRESS');
-  }
-  if (from === 'CANCELED' && to !== 'TO_DO') {
-    throw new Error('CANCELED may only transition to TO_DO');
+  if (!canTransitionTaskStatus(from, to)) {
+    if (from === 'COMPLETED') throw new Error('COMPLETED may only transition to IN_PROGRESS');
+    if (from === 'CANCELED') throw new Error('CANCELED may only transition to TO_DO');
+    throw new Error(`invalid task transition: ${from} -> ${to}`);
   }
 }
 

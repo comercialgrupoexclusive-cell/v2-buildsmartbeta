@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TaskRepository } from '@/lib/tasks/repository';
-import { TaskService } from '@/lib/tasks/service';
+import { canTransitionTaskStatus, TaskService } from '@/lib/tasks/service';
 import { TASK_PRIORITIES, TASK_STATUSES, type Task } from '@/lib/tasks/types';
 
 const baseTask: Task = {
@@ -65,6 +65,14 @@ describe('G03 Task Core', () => {
     expect(TASK_PRIORITIES).toEqual(['LOW', 'NORMAL', 'HIGH', 'URGENT']);
     expect(TASK_STATUSES).not.toContain('DRAFT');
     expect(TASK_STATUSES).not.toContain('OVERDUE');
+  });
+
+  it('exposes the same terminal transition rules used by the field UI', () => {
+    expect(canTransitionTaskStatus('COMPLETED', 'IN_PROGRESS')).toBe(true);
+    expect(canTransitionTaskStatus('COMPLETED', 'TO_DO')).toBe(false);
+    expect(canTransitionTaskStatus('CANCELED', 'TO_DO')).toBe(true);
+    expect(canTransitionTaskStatus('CANCELED', 'IN_PROGRESS')).toBe(false);
+    expect(canTransitionTaskStatus('TO_DO', 'COMPLETED')).toBe(true);
   });
 
   it('creates a Project-scoped task and trims its title', async () => {
