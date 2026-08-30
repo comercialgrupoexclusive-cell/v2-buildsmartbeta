@@ -1,0 +1,208 @@
+'use client';
+
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+
+type Organization = { id: string; name: string };
+type Project = { id: string; organization_id: string; code: string | null; name: string; status: 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED' };
+
+export default function ProjectsPage() {
+  const router = useRouter();
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [orgName, setOrgName] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [projectCode, setProjectCode] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      router.replace('/login');
+      return;
+    }
+
+    const [{ data: orgRows, error: orgError }, { data: projectRows, error: projectError }] = await Promise.all([
+      supabase.from('organizations').select('id,name').order('created_at'),
+      supabase.from('projects').select('id,organization_id,code,name,status').order('created_at'),
+    ]);
+
+    if (orgError || projectError) {
+      setMessage(orgError?.message ?? projectError?.message ?? 'Falha ao carregar dados.');
+      return;
+    }
+
+    const nextOrganizations = (orgRows ?? []) as Organization[];
+    setOrganizations(nextOrganizations);
+    setProjects((projectRows ?? []) as Project[]);
+    setSelectedOrgId((current) => current || nextOrganizations[0]?.id || '');
+  }, [router, supabase]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function createOrganization(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) {
+      router.replace('/login');
+      return;
+    }
+
+    const organizationId = crypto.randomUUID();
+    const { error: orgError } = await supabase.from('organizations').insert({
+      id: organizationId,
+      name: orgName.trim(),
+      created_by: authData.user.id,
+    });
+    if (orgError) {
+      setMessage(orgError.message);
+      return;
+    }
+
+    const { error: membershipError } = await supabase.from('organization_memberships').insert({
+      organization_id: organizationId,
+      user_id: authData.user.id,
+      role: 'OWNER',
+    });
+    if (membershipError) {
+      setMessage(membershipError.message);
+      return;
+    }
+
+    await supabase.from('audit_logs').insert({
+      organization_id: organizationId,
+      actor_user_id: authData.user.id,
+      action: 'organization.create',
+      entity_type: 'organization',
+      entity_id: organizationId,
+      after_state: { name: orgName.trim() },
+      source: 'web',
+    });
+
+    setOrgName('');
+    setSelectedOrgId(organizationId);
+    await load();
+  }
+
+  async function createProject(event: FormEvent) {
+    event.preventDefault();
+    setMessage(null);
+    if (!selectedOrgId) {
+      setMessage('Crie ou selecione uma organização primeiro.');
+      return;
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) {
+      router.replace('/login');
+      return;
+    }
+
+    const projectId = crypto.randomUUID();
+    const { error: projectError } = await supabase.from('projects').insert({
+      id: projectId,
+      organization_id: selectedOrgId,
+      code: projectCode.trim() || null,
+      name: projectName.trim(),
+      created_by: authData.user.id,
+    });
+    if (projectError) {
+      setMessage(projectError.message);
+      return;
+    }
+
+    const { error: membershipError } = await supabase.from('project_memberships').insert({
+      project_id: projectId,
+      user_id: authData.user.id,
+      role: 'MANAGER',
+    });
+    if (membershipError) {
+      setMessage(membershipError.message);
+      return;
+    }
+
+    await supabase.from('audit_logs').insert({
+      organization_id: selectedOrgId,
+      project_id: projectId,
+      actor_user_id: authData.user.id,
+      action: 'project.create',
+      entity_type: 'project',
+      entity_id: projectId,
+      after_state: { code: projectCode.trim() || null, name: projectName.trim(), status: 'ACTIVE' },
+      source: 'web',
+    });
+
+    setProjectName('');
+    setProjectCode('');
+    await load();
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  }
+
+  const visibleProjects = selectedOrgId
+    ? projects.filter((project) => project.organization_id === selectedOrgId)
+    : projects;
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 p-6 md:p-10">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-gray-500">BuildSmart V2 · G02</p>
+          <h1 className="text-3xl font-bold">Projetos</h1>
+        </div>
+        <button className="rounded-lg border px-3 py-2 text-sm" onClick={signOut}>Sair</button>
+      </header>
+
+      {message ? <p className="rounded-lg border p-3 text-sm">{message}</p> : null}
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <form className="flex flex-col gap-3 rounded-xl border p-5" onSubmit={createOrganization}>
+          <h2 className="font-semibold">Nova organização</h2>
+          <input className="rounded-lg border px-3 py-2" placeholder="Nome" value={orgName} onChange={(e) => setOrgName(e.target.value)} required />
+          <button className="w-fit rounded-lg bg-black px-4 py-2 text-white" type="submit">Criar organização</button>
+        </form>
+
+        <form className="flex flex-col gap-3 rounded-xl border p-5" onSubmit={createProject}>
+          <h2 className="font-semibold">Novo projeto</h2>
+          <select className="rounded-lg border px-3 py-2" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} required>
+            <option value="">Selecione a organização</option>
+            {organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+          </select>
+          <input className="rounded-lg border px-3 py-2" placeholder="Código opcional" value={projectCode} onChange={(e) => setProjectCode(e.target.value)} />
+          <input className="rounded-lg border px-3 py-2" placeholder="Nome do projeto" value={projectName} onChange={(e) => setProjectName(e.target.value)} required />
+          <button className="w-fit rounded-lg bg-black px-4 py-2 text-white" type="submit">Criar projeto</button>
+        </form>
+      </section>
+
+      <section className="rounded-xl border p-5">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="font-semibold">Projetos acessíveis</h2>
+          <span className="text-sm text-gray-500">{visibleProjects.length}</span>
+        </div>
+        <div className="grid gap-3">
+          {visibleProjects.length === 0 ? <p className="text-sm text-gray-500">Nenhum projeto neste contexto.</p> : null}
+          {visibleProjects.map((project) => (
+            <article className="rounded-lg border p-4" key={project.id}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">{project.name}</p>
+                  <p className="text-sm text-gray-500">{project.code || 'Sem código'}</p>
+                </div>
+                <span className="text-xs font-medium">{project.status}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
