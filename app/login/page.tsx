@@ -2,22 +2,22 @@
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('confirmed') === '1') {
       setMessage('E-mail confirmado. Entre para continuar.');
     }
-  }, [searchParams]);
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
