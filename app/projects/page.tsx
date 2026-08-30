@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
@@ -15,7 +15,6 @@ type Project = {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState('');
@@ -25,6 +24,7 @@ export default function ProjectsPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const supabase = createBrowserSupabaseClient();
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) {
       router.replace('/login');
@@ -45,7 +45,7 @@ export default function ProjectsPage() {
     setOrganizations(nextOrganizations);
     setProjects((projectRows ?? []) as Project[]);
     setSelectedOrgId((current) => current || nextOrganizations[0]?.id || '');
-  }, [router, supabase]);
+  }, [router]);
 
   useEffect(() => {
     void load();
@@ -54,6 +54,7 @@ export default function ProjectsPage() {
   async function createOrganization(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
+    const supabase = createBrowserSupabaseClient();
 
     const { data, error } = await supabase.rpc('create_organization', {
       p_name: orgName.trim(),
@@ -78,6 +79,7 @@ export default function ProjectsPage() {
       return;
     }
 
+    const supabase = createBrowserSupabaseClient();
     const { error } = await supabase.rpc('create_project', {
       p_organization_id: selectedOrgId,
       p_name: projectName.trim(),
@@ -95,6 +97,7 @@ export default function ProjectsPage() {
   }
 
   async function signOut() {
+    const supabase = createBrowserSupabaseClient();
     await supabase.auth.signOut();
     router.replace('/login');
   }
