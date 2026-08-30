@@ -5,6 +5,8 @@ import { FormEvent, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
+  const [fullName, setFullName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -13,7 +15,7 @@ export default function SignupPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!email.trim() || !password) return;
+    if (!fullName.trim() || !email.trim() || !password) return;
 
     setBusy(true);
     setMessage(null);
@@ -24,7 +26,13 @@ export default function SignupPage() {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo },
+        options: {
+          emailRedirectTo,
+          data: {
+            full_name: fullName.trim(),
+            display_name: displayName.trim() || null,
+          },
+        },
       });
 
       if (error) {
@@ -50,6 +58,32 @@ export default function SignupPage() {
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={submit}>
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Nome completo
+          <input
+            className="rounded-lg border px-3 py-2 font-normal"
+            type="text"
+            autoComplete="name"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            required
+            disabled={created}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Como você quer ser chamado(a)
+          <span className="font-normal text-xs text-gray-500">Opcional. Se não preencher, usamos parte do seu nome completo.</span>
+          <input
+            className="rounded-lg border px-3 py-2 font-normal"
+            type="text"
+            autoComplete="nickname"
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            disabled={created}
+          />
+        </label>
+
         <label className="flex flex-col gap-1 text-sm font-medium">
           E-mail
           <input

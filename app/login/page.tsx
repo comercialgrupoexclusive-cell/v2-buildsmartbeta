@@ -120,6 +120,10 @@ export default function LoginPage() {
         >
           {busy ? 'Entrando...' : 'Entrar'}
         </button>
+
+        <Link className="text-sm font-medium underline underline-offset-4" href="/forgot-password">
+          Esqueci minha senha
+        </Link>
       </form>
 
       <div className="border-t pt-5 text-sm text-gray-600">
