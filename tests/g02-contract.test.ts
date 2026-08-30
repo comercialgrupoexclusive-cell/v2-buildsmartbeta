@@ -20,17 +20,28 @@ describe("G02 identity contract", () => {
     expect(sql).toContain("status public.project_status not null default 'ACTIVE'");
   });
 
-  it("mantém bootstrap atômico autenticado para Organization e Project", () => {
-    const sql = migration("20260830023042_g02_atomic_bootstrap_actions.sql");
+  it("mantém bootstrap atômico sem privilégio elevado", () => {
+    const sql = migration("20260830023341_g02_fix_invoker_bootstrap_returning.sql");
 
     expect(sql).toContain("create or replace function public.create_organization");
     expect(sql).toContain("create or replace function public.create_project");
-    expect(sql).toContain("if v_user_id is null then");
+    expect(sql).toContain("security invoker");
+    expect(sql).toContain("v_organization_id uuid := gen_random_uuid()");
+    expect(sql).toContain("v_project_id uuid := gen_random_uuid()");
     expect(sql).toContain("grant execute on function public.create_organization(text) to authenticated");
     expect(sql).toContain("grant execute on function public.create_project(uuid, text, text) to authenticated");
   });
 
-  it("mantém audit automático das entidades centrais", () => {
+  it("mantém bootstrap de Membership sem recursão de RLS", () => {
+    const sql = migration("20260830022900_g02_fix_membership_creator_bootstrap.sql");
+
+    expect(sql).toContain("private.is_org_creator(organization_id)");
+    expect(sql).toContain("private.is_project_creator(project_id)");
+    expect(sql).not.toContain("select 1 from public.organization_memberships existing");
+    expect(sql).not.toContain("select 1 from public.project_memberships existing");
+  });
+
+  it("mantém Audit automático das entidades centrais", () => {
     const sql = migration("20260830022809_g02_identity_audit_triggers.sql");
     const fix = migration("20260830022815_g02_fix_organization_audit_trigger.sql");
 
