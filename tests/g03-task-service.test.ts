@@ -88,7 +88,8 @@ describe('G03 Task Core', () => {
   });
 
   it('allows COMPLETED to reopen only as IN_PROGRESS', async () => {
-    const repo = repository({ getTask: vi.fn(async () => ({ ...baseTask, status: 'COMPLETED' })) });
+    const completed: Task = { ...baseTask, status: 'COMPLETED' };
+    const repo = repository({ getTask: vi.fn(async () => completed) });
     const service = new TaskService(repo);
     await expect(service.changeStatus('task-1', 'TO_DO')).rejects.toThrow('COMPLETED');
     const reopened = await service.changeStatus('task-1', 'IN_PROGRESS');
@@ -96,7 +97,8 @@ describe('G03 Task Core', () => {
   });
 
   it('allows CANCELED to reactivate only as TO_DO', async () => {
-    const repo = repository({ getTask: vi.fn(async () => ({ ...baseTask, status: 'CANCELED' })) });
+    const canceledTask: Task = { ...baseTask, status: 'CANCELED' };
+    const repo = repository({ getTask: vi.fn(async () => canceledTask) });
     const service = new TaskService(repo);
     await expect(service.changeStatus('task-1', 'IN_PROGRESS')).rejects.toThrow('CANCELED');
     const reactivated = await service.reactivateTask('task-1');
