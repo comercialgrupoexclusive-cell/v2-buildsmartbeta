@@ -1,23 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, useState } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get('confirmed') === '1') {
-      setMessage('E-mail confirmado. Entre para continuar.');
-    }
-  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -28,30 +20,22 @@ export default function LoginPage() {
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const emailRedirectTo = `${window.location.origin}/login?confirmed=1`;
+      const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
+        options: { emailRedirectTo },
       });
 
-      if (error || !data.user) {
-        setMessage(error?.message ?? 'Não foi possível entrar.');
+      if (error) {
+        setMessage(error.message);
         return;
       }
 
-      const { data: organizations, error: organizationError } = await supabase
-        .from('organizations')
-        .select('id')
-        .limit(1);
-
-      if (organizationError) {
-        setMessage(organizationError.message);
-        return;
-      }
-
-      router.replace((organizations ?? []).length === 0 ? '/onboarding' : '/projects');
-      router.refresh();
+      setCreated(true);
+      setMessage('Conta criada. Enviamos um e-mail de confirmação. Depois de confirmar, entre no BuildSmart.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível conectar ao BuildSmart.');
+      setMessage(error instanceof Error ? error.message : 'Não foi possível criar sua conta.');
     } finally {
       setBusy(false);
     }
@@ -61,8 +45,8 @@ export default function LoginPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-7 p-6">
       <div>
         <p className="text-sm font-medium text-gray-500">BuildSmart V2</p>
-        <h1 className="mt-1 text-3xl font-bold">Entrar</h1>
-        <p className="mt-2 text-sm text-gray-600">Acesse seu espaço de trabalho.</p>
+        <h1 className="mt-1 text-3xl font-bold">Criar conta</h1>
+        <p className="mt-2 text-sm text-gray-600">Primeiro crie sua identidade. A configuração do espaço de trabalho vem depois do login.</p>
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={submit}>
@@ -75,6 +59,7 @@ export default function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            disabled={created}
           />
         </label>
 
@@ -83,31 +68,31 @@ export default function LoginPage() {
           <input
             className="rounded-lg border px-3 py-2 font-normal"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             minLength={6}
             required
+            disabled={created}
           />
         </label>
 
         {message ? <p className="rounded-lg border p-3 text-sm text-gray-700">{message}</p> : null}
 
-        <button
-          className="rounded-lg bg-black px-4 py-2.5 text-white disabled:opacity-50"
-          disabled={busy}
-          type="submit"
-        >
-          {busy ? 'Entrando...' : 'Entrar'}
-        </button>
+        {!created ? (
+          <button
+            className="rounded-lg bg-black px-4 py-2.5 text-white disabled:opacity-50"
+            disabled={busy}
+            type="submit"
+          >
+            {busy ? 'Criando conta...' : 'Criar conta'}
+          </button>
+        ) : null}
       </form>
 
-      <div className="border-t pt-5 text-sm text-gray-600">
-        Ainda não possui conta?{' '}
-        <Link className="font-medium text-black underline underline-offset-4" href="/signup">
-          Criar conta
-        </Link>
-      </div>
+      <Link className="text-sm font-medium underline underline-offset-4" href="/login">
+        Voltar para entrar
+      </Link>
     </main>
   );
 }
