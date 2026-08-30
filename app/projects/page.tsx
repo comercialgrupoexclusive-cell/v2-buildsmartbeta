@@ -5,14 +5,20 @@ import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 type Organization = { id: string; name: string };
-type Project = { id: string; organization_id: string; code: string | null; name: string; status: 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED' };
+type Project = {
+  id: string;
+  organization_id: string;
+  code: string | null;
+  name: string;
+  status: 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+};
 
 export default function ProjectsPage() {
   const router = useRouter();
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [selectedOrgId, setSelectedOrgId] = useState('');
   const [orgName, setOrgName] = useState('');
   const [projectName, setProjectName] = useState('');
   const [projectCode, setProjectCode] = useState('');
@@ -48,95 +54,40 @@ export default function ProjectsPage() {
   async function createOrganization(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData.user) {
-      router.replace('/login');
+
+    const { data, error } = await supabase.rpc('create_organization', {
+      p_name: orgName.trim(),
+    });
+
+    if (error) {
+      setMessage(error.message);
       return;
     }
-
-    const organizationId = crypto.randomUUID();
-    const { error: orgError } = await supabase.from('organizations').insert({
-      id: organizationId,
-      name: orgName.trim(),
-      created_by: authData.user.id,
-    });
-    if (orgError) {
-      setMessage(orgError.message);
-      return;
-    }
-
-    const { error: membershipError } = await supabase.from('organization_memberships').insert({
-      organization_id: organizationId,
-      user_id: authData.user.id,
-      role: 'OWNER',
-    });
-    if (membershipError) {
-      setMessage(membershipError.message);
-      return;
-    }
-
-    await supabase.from('audit_logs').insert({
-      organization_id: organizationId,
-      actor_user_id: authData.user.id,
-      action: 'organization.create',
-      entity_type: 'organization',
-      entity_id: organizationId,
-      after_state: { name: orgName.trim() },
-      source: 'web',
-    });
 
     setOrgName('');
-    setSelectedOrgId(organizationId);
+    if (typeof data === 'string') setSelectedOrgId(data);
     await load();
   }
 
   async function createProject(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
+
     if (!selectedOrgId) {
       setMessage('Crie ou selecione uma organização primeiro.');
       return;
     }
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData.user) {
-      router.replace('/login');
+    const { error } = await supabase.rpc('create_project', {
+      p_organization_id: selectedOrgId,
+      p_name: projectName.trim(),
+      p_code: projectCode.trim() || null,
+    });
+
+    if (error) {
+      setMessage(error.message);
       return;
     }
-
-    const projectId = crypto.randomUUID();
-    const { error: projectError } = await supabase.from('projects').insert({
-      id: projectId,
-      organization_id: selectedOrgId,
-      code: projectCode.trim() || null,
-      name: projectName.trim(),
-      created_by: authData.user.id,
-    });
-    if (projectError) {
-      setMessage(projectError.message);
-      return;
-    }
-
-    const { error: membershipError } = await supabase.from('project_memberships').insert({
-      project_id: projectId,
-      user_id: authData.user.id,
-      role: 'MANAGER',
-    });
-    if (membershipError) {
-      setMessage(membershipError.message);
-      return;
-    }
-
-    await supabase.from('audit_logs').insert({
-      organization_id: selectedOrgId,
-      project_id: projectId,
-      actor_user_id: authData.user.id,
-      action: 'project.create',
-      entity_type: 'project',
-      entity_id: projectId,
-      after_state: { code: projectCode.trim() || null, name: projectName.trim(), status: 'ACTIVE' },
-      source: 'web',
-    });
 
     setProjectName('');
     setProjectCode('');
@@ -167,18 +118,20 @@ export default function ProjectsPage() {
       <section className="grid gap-6 md:grid-cols-2">
         <form className="flex flex-col gap-3 rounded-xl border p-5" onSubmit={createOrganization}>
           <h2 className="font-semibold">Nova organização</h2>
-          <input className="rounded-lg border px-3 py-2" placeholder="Nome" value={orgName} onChange={(e) => setOrgName(e.target.value)} required />
+          <input className="rounded-lg border px-3 py-2" placeholder="Nome" value={orgName} onChange={(event) => setOrgName(event.target.value)} required />
           <button className="w-fit rounded-lg bg-black px-4 py-2 text-white" type="submit">Criar organização</button>
         </form>
 
         <form className="flex flex-col gap-3 rounded-xl border p-5" onSubmit={createProject}>
           <h2 className="font-semibold">Novo projeto</h2>
-          <select className="rounded-lg border px-3 py-2" value={selectedOrgId} onChange={(e) => setSelectedOrgId(e.target.value)} required>
+          <select className="rounded-lg border px-3 py-2" value={selectedOrgId} onChange={(event) => setSelectedOrgId(event.target.value)} required>
             <option value="">Selecione a organização</option>
-            {organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>{organization.name}</option>
+            ))}
           </select>
-          <input className="rounded-lg border px-3 py-2" placeholder="Código opcional" value={projectCode} onChange={(e) => setProjectCode(e.target.value)} />
-          <input className="rounded-lg border px-3 py-2" placeholder="Nome do projeto" value={projectName} onChange={(e) => setProjectName(e.target.value)} required />
+          <input className="rounded-lg border px-3 py-2" placeholder="Código opcional" value={projectCode} onChange={(event) => setProjectCode(event.target.value)} />
+          <input className="rounded-lg border px-3 py-2" placeholder="Nome do projeto" value={projectName} onChange={(event) => setProjectName(event.target.value)} required />
           <button className="w-fit rounded-lg bg-black px-4 py-2 text-white" type="submit">Criar projeto</button>
         </form>
       </section>
