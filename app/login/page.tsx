@@ -12,11 +12,42 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get('confirmed') === '1') {
-      setMessage('E-mail confirmado. Entre para continuar.');
+  async function routeAuthenticatedUser() {
+    const supabase = createBrowserSupabaseClient();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return false;
+
+    const { data: organizations, error: organizationError } = await supabase
+      .from('organizations')
+      .select('id')
+      .limit(1);
+
+    if (organizationError) {
+      setMessage(organizationError.message);
+      return true;
     }
+
+    router.replace((organizations ?? []).length === 0 ? '/onboarding' : '/projects');
+    router.refresh();
+    return true;
+  }
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const routed = await routeAuthenticatedUser();
+        if (!routed) {
+          const searchParams = new URLSearchParams(window.location.search);
+          if (searchParams.get('confirmed') === '1') {
+            setMessage('E-mail confirmado. Entre para continuar.');
+          }
+        }
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Não foi possível verificar sua sessão.');
+      }
+    })();
+  // routeAuthenticatedUser intentionally reads the current router instance once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function submit(event: FormEvent) {
@@ -38,18 +69,7 @@ export default function LoginPage() {
         return;
       }
 
-      const { data: organizations, error: organizationError } = await supabase
-        .from('organizations')
-        .select('id')
-        .limit(1);
-
-      if (organizationError) {
-        setMessage(organizationError.message);
-        return;
-      }
-
-      router.replace((organizations ?? []).length === 0 ? '/onboarding' : '/projects');
-      router.refresh();
+      await routeAuthenticatedUser();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível conectar ao BuildSmart.');
     } finally {
