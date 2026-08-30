@@ -7,22 +7,25 @@ function source(path: string) {
 }
 
 describe('G04 canonical auth and onboarding route', () => {
-  it('keeps login focused only on authentication', () => {
+  it('keeps login focused only on authentication and prerender-safe', () => {
     const login = source('app/login/page.tsx');
 
     expect(login).toContain('signInWithPassword');
     expect(login).not.toContain('signUp(');
+    expect(login).not.toContain('useSearchParams');
     expect(login).toContain('href="/signup"');
     expect(login).toContain("router.replace((organizations ?? []).length === 0 ? '/onboarding' : '/projects')");
+    expect(login).toContain('auth.getUser()');
   });
 
-  it('keeps account creation on a dedicated route with an explicit environment redirect', () => {
+  it('keeps account creation on a dedicated route and sends confirmation to onboarding', () => {
     const signup = source('app/signup/page.tsx');
 
     expect(signup).toContain('signUp(');
     expect(signup).toContain('window.location.origin');
     expect(signup).toContain('emailRedirectTo');
-    expect(signup).toContain("/login?confirmed=1");
+    expect(signup).toContain("/onboarding");
+    expect(signup).not.toContain('localhost:3000');
   });
 
   it('keeps first-use setup outside the operational Projects screen', () => {

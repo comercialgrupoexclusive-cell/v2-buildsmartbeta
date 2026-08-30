@@ -20,7 +20,7 @@ export default function SignupPage() {
 
     try {
       const supabase = createBrowserSupabaseClient();
-      const emailRedirectTo = `${window.location.origin}/login?confirmed=1`;
+      const emailRedirectTo = `${window.location.origin}/onboarding`;
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -33,7 +33,7 @@ export default function SignupPage() {
       }
 
       setCreated(true);
-      setMessage('Conta criada. Enviamos um e-mail de confirmação. Depois de confirmar, entre no BuildSmart.');
+      setMessage('Conta criada. Confirme seu e-mail para continuar o primeiro acesso ao BuildSmart.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível criar sua conta.');
     } finally {
@@ -46,7 +46,7 @@ export default function SignupPage() {
       <div>
         <p className="text-sm font-medium text-gray-500">BuildSmart V2</p>
         <h1 className="mt-1 text-3xl font-bold">Criar conta</h1>
-        <p className="mt-2 text-sm text-gray-600">Primeiro crie sua identidade. A configuração do espaço de trabalho vem depois do login.</p>
+        <p className="mt-2 text-sm text-gray-600">Crie sua identidade primeiro. Após confirmar o e-mail, o BuildSmart inicia a configuração do seu espaço de trabalho.</p>
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={submit}>
