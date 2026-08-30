@@ -33,13 +33,14 @@ export default function NewProjectPage() {
         }
 
         const rows = (data ?? []) as Organization[];
-        if (rows.length === 0) {
+        const firstOrganization = rows[0];
+        if (!firstOrganization) {
           router.replace('/onboarding');
           return;
         }
 
         setOrganizations(rows);
-        setOrganizationId(rows[0].id);
+        setOrganizationId(firstOrganization.id);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : 'Não foi possível preparar a criação do projeto.');
       }
