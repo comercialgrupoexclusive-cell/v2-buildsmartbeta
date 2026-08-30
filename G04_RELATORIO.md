@@ -37,9 +37,9 @@ A primeira validação humana detectou um desvio de rota anterior ao próprio us
 
 O achado é classificado como **estrutural**, portanto impede o PASS operacional do G04.
 
-## Correção de rota em implementação
+## Correção canônica aplicada
 
-A branch `v2-g04-auth-onboarding` separa o ciclo em:
+O PR #6, mergeado em `main`, separa o ciclo em:
 
 `/login` → autenticação apenas
 
@@ -53,7 +53,13 @@ A branch `v2-g04-auth-onboarding` separa o ciclo em:
 
 Usuário autenticado sem Organization acessível é enviado ao onboarding; usuário já configurado não refaz onboarding.
 
-O signup passa `emailRedirectTo` usando a origem real do ambiente (`window.location.origin`) para não fixar localhost no código. A configuração hospedada de URL do Supabase Auth também deve apontar para a origem canônica de produção; isso é condição explícita antes da nova validação humana.
+O signup passa `emailRedirectTo` usando a origem real do ambiente (`window.location.origin`) para não fixar localhost no código.
+
+## Bloqueio externo conhecido — Supabase Auth URL
+
+O redirecionamento de confirmação de e-mail também depende da configuração hospedada do Supabase Auth. A `Site URL` e a lista de `Redirect URLs` precisam aceitar a origem canônica de produção `https://v2-buildsmartbeta.vercel.app`.
+
+O conector Supabase disponível nesta execução não expõe escrita dessa configuração administrativa. Portanto, esse item **não é marcado como corrigido** até ser alterado/verificado no projeto Supabase. O G04 não volta para validação humana antes disso.
 
 ## Segurança e arquitetura
 
@@ -71,9 +77,11 @@ Organization → Project permanece o modelo canônico. Onboarding é fluxo de pr
 - Projects deve enviar usuário não configurado para onboarding.
 - criação posterior de Project pertence a `/projects/new`.
 
-## Validação técnica anterior
+## Validação técnica
 
-GitHub Actions run `33292207462` no head `cbfc5944d0cec7ac3e6b3bf53297e710220c4aaf`:
+PR #6: CI completo PASS no run `33295019650`.
+
+`main` após merge `0ec72a62a5be9962a407e7545d333643a81313b1`: CI completo PASS no run `33295069855`.
 
 - Install: PASS
 - Lint: PASS
@@ -81,16 +89,14 @@ GitHub Actions run `33292207462` no head `cbfc5944d0cec7ac3e6b3bf53297e710220c4a
 - Test: PASS
 - Build: PASS
 
-A rodada estrutural atual será considerada tecnicamente pronta somente após novo CI completo e deploy de produção da correção.
-
 ## Validação operacional pendente
 
 O G00 exige Project Tasks + My Tasks + Kanban mínimo **validado em uso real** e Gate com **período de uso definido sem correções estruturais**. Implementação, CI e deploy não substituem essa evidência.
 
-O protocolo operacional continua em `G04_VALIDACAO_CAMPO.md`. O período de uso só recomeça depois que o fluxo de autenticação/onboarding corrigido estiver em produção e passar pelo primeiro uso real.
+O protocolo operacional continua em `G04_VALIDACAO_CAMPO.md`. O período de uso só recomeça depois que o fluxo de autenticação/onboarding corrigido estiver em produção, a URL do Supabase Auth estiver correta e o primeiro uso real passar sem novo desvio estrutural.
 
 ## Resultado atual
 
 **G04 permanece aberto.**
 
-PASS técnico da área de Tasks existe, mas o desvio estrutural de primeiro uso deve ser corrigido e revalidado antes de qualquer PASS operacional ou abertura formal do G05.
+A correção estrutural de código está tecnicamente aprovada. O bloqueio externo da URL do Supabase Auth e a posterior validação real ainda impedem o PASS operacional e a abertura formal do G05.
