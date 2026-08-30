@@ -24,6 +24,18 @@ export default function OnboardingPage() {
           return;
         }
 
+        const metadataFullName = (authData.user.user_metadata?.full_name as string | undefined)?.trim();
+        if (metadataFullName) {
+          const { data: existingProfile } = await supabase.from('profiles').select('id').limit(1).maybeSingle();
+          if (!existingProfile) {
+            const metadataDisplayName = (authData.user.user_metadata?.display_name as string | undefined)?.trim() || null;
+            await supabase.rpc('upsert_own_profile', {
+              p_full_name: metadataFullName,
+              p_display_name: metadataDisplayName,
+            });
+          }
+        }
+
         const { data: organizations, error } = await supabase.from('organizations').select('id').limit(1);
         if (error) {
           setMessage(error.message);
