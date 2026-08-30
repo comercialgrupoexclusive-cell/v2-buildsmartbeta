@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { SupabaseTaskRepository } from '@/lib/tasks/repository';
-import { TaskService } from '@/lib/tasks/service';
+import { canTransitionTaskStatus, TaskService } from '@/lib/tasks/service';
 import { TASK_PRIORITIES, TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from '@/lib/tasks/types';
 
 type Member = { user_id: string; role: string };
@@ -30,26 +30,32 @@ export default function TaskWorkspace({ projectId, myTasks = false }: { projectI
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const supabase = createBrowserSupabaseClient();
-    const { data: authData } = await supabase.auth.getUser();
-    if (!authData.user) { router.replace('/login'); return; }
-    setActorId(authData.user.id);
-    const service = new TaskService(new SupabaseTaskRepository(supabase));
     try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) { router.replace('/login'); return; }
+      setActorId(authData.user.id);
+      const service = new TaskService(new SupabaseTaskRepository(supabase));
       const nextTasks = myTasks ? await service.listMyTasks(authData.user.id) : await service.listProjectTasks(projectId!);
       setTasks(nextTasks);
       if (myTasks) {
         const ids = [...new Set(nextTasks.map((task) => task.projectId))];
         if (ids.length) {
-          const { data } = await supabase.from('projects').select('id,name,code').in('id', ids);
+          const { data, error } = await supabase.from('projects').select('id,name,code').in('id', ids);
+          if (error) throw error;
           setProjects((data ?? []) as Project[]);
+        } else {
+          setProjects([]);
         }
       } else {
-        const { data } = await supabase.from('project_memberships').select('user_id,role').eq('project_id', projectId!);
+        const { data, error } = await supabase.from('project_memberships').select('user_id,role').eq('project_id', projectId!);
+        if (error) throw error;
         setMembers((data ?? []) as Member[]);
       }
       setMessage(null);
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Falha ao carregar tarefas.'); }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Falha ao carregar tarefas.');
+    }
   }, [myTasks, projectId, router]);
 
   useEffect(() => { void load(); }, [load]);
@@ -76,6 +82,10 @@ export default function TaskWorkspace({ projectId, myTasks = false }: { projectI
   const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
 
   function taskCard(task: Task) {
+    const availableStatuses = TASK_STATUSES.filter(
+      (status) => status !== task.status && canTransitionTaskStatus(task.status, status),
+    );
+
     return (
       <article key={task.id} className="rounded-xl border bg-white p-4">
         <div className="flex items-start justify-between gap-3">
@@ -89,11 +99,13 @@ export default function TaskWorkspace({ projectId, myTasks = false }: { projectI
           <span>{STATUS_LABEL[task.status]}</span>
           <span>·</span><span>{task.dueAt ? new Date(task.dueAt).toLocaleDateString('pt-BR') : 'Sem prazo'}</span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {TASK_STATUSES.filter((status) => status !== task.status).map((status) => (
-            <button key={status} onClick={() => void changeStatus(task, status)} className="rounded-lg border px-2 py-1 text-xs" type="button">{STATUS_LABEL[status]}</button>
-          ))}
-        </div>
+        {availableStatuses.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableStatuses.map((status) => (
+              <button key={status} onClick={() => void changeStatus(task, status)} className="rounded-lg border px-2 py-1 text-xs" type="button">{STATUS_LABEL[status]}</button>
+            ))}
+          </div>
+        ) : null}
       </article>
     );
   }
