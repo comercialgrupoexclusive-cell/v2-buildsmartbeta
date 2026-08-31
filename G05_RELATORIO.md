@@ -79,5 +79,45 @@ Nenhuma nova nesta rodada.
 - 2 commits na branch `v2-g05-budget` (rodada 1: `cost_items`; rodada 2: `budgets`/`budget_items`), ambos com lint/typecheck/test/build limpos.
 - Teste funcional de 3 níveis de árvore executado ao vivo no banco, com rollback (sem resíduo).
 
+### Rodada 3 — G05.3 (Markups) + G05.4 (Aprovação e revisão)
+- Migration `20260831000200_g05_budget_markups.sql`: `budget_markups` (percentual/fixo), mesma trava de escrita (`is_budget_editor` + `is_budget_draft`), `budget_markup_amount`/`budget_final_total` (`security invoker`).
+- Migration `20260831000300_g05_budget_approval.sql`: FK auto-referenciada de `budget_items` tornada `deferrable initially deferred` (necessário pra `duplicate_budget` inserir uma árvore inteira em um único `INSERT ... SELECT` sem depender da ordem das linhas); `approve_budget` (RPC, só aprova DRAFT); `duplicate_budget` (RPC, só duplica APPROVED, cria revisão DRAFT com `parent_budget_id`, copia itens e markups com IDs remapeados).
+- **Dois bugs reais achados e corrigidos durante o teste funcional ao vivo** (não só assumidos corretos):
+  1. Rodar SQL direto (sem sessão autenticada) faz `auth.uid()` retornar `null` — o teste inicial falhou no próprio `CHECK` de `budgets_approval_pair`. Corrigido simulando sessão via `set_config('request.jwt.claims', ...)` + `set local role authenticated`.
+  2. RLS em `UPDATE` não gera exceção quando a policy não bate — só filtra silenciosamente (zero linhas afetadas). O teste inicial assumia que tentar editar um item de orçamento aprovado geraria erro; corrigido para checar se o valor realmente não mudou.
+- Teste funcional real e descartável (transação com `ROLLBACK`): item de 1000 direto + BDI 25% (+250) + taxa fixa 50 = 1300 final; aprovação preenche `approved_at`/`approved_by`; edição pós-aprovação bloqueada por RLS (valor não muda); `duplicate_budget` cria revisão DRAFT com o mesmo item e mesmo total final (1300). `select count(*)` = 0 em todas as tabelas depois do rollback.
+- Teste `tests/g05-budget-markups-approval-contract.test.ts` (6 testes).
+
+### Rodada 4 — G05.6 (UI mobile-first)
+- `lib/budget/{types,repository,service}.ts`: mesmo padrão Repository/Service já usado em `lib/tasks`. Funções puras `buildItemTree`/`computeNodeTotal` (árvore livre a partir de lista plana; nó folha = qtd×preço, nó pai = soma dos filhos) — testáveis sem banco.
+- `app/projects/[projectId]/budget/page.tsx` + `app/budget/budget-workspace.tsx`: tela única mobile-first — árvore colapsável (toque expande/recolhe), total em destaque no topo, formulário de item com 3 campos (descrição/quantidade/preço) fixo no rodapé (ação primária no polegar), markups atrás de "Avançado", botão "Aprovar orçamento" fixo no rodapé, tudo somente-leitura depois de aprovado.
+- Link "Orçamento" adicionado em cada card de `/projects`.
+- Teste `tests/g05-budget-tree.test.ts` (4 testes): árvore livre, total de folha, total de pai em 3 níveis, item órfão não quebra a árvore.
+
+## Comandos executados (consolidado, rodadas 1-4)
+
+### Lint / Typecheck / Build
+Todos limpos.
+
+### Testes
+Comando: `npm run test`
+Resultado: 10 arquivos / 45 testes, todos passando.
+
+## Segurança
+- Supabase Security Advisor: sem lint novo em nenhuma rodada (só o WARN pré-existente de leaked password, bloqueado pelo plano Free).
+- Supabase Performance Advisor: sem FK sem índice.
+
+## Dívida técnica criada
+- UI de `CostItem` (cadastro de base de custos) ainda não existe — os itens de orçamento hoje só aceitam preço manual pela tela; vincular a um `CostItem` é possível no banco (`cost_item_id`) mas sem seletor na UI ainda. Registrado, não bloqueia o Gate (G05_PLANO não exige isso).
+
+## Itens deliberadamente não implementados
+- Multi-revisão lado a lado na UI (só a criação da revisão via `duplicate_budget` existe no banco; navegar entre revisões antigas fica pra quando houver caso real).
+- Seletor de `CostItem` na tela de item (ver dívida técnica acima).
+
+## Evidências para revisão
+- 4 commits na branch `v2-g05-budget`, todos com lint/typecheck/test/build limpos.
+- Dois testes funcionais ao vivo no banco (árvore de 3 níveis; markup+aprovação+duplicação), ambos em transação com `ROLLBACK`, sem resíduo.
+- Build gera a rota `/projects/[projectId]/budget` normalmente.
+
 ## Autoavaliação do Gate
-NÃO PRONTO — rodadas 1 e 2 (G05.1, G05.2) de 6 concluídas.
+PRONTO PARA REVISÃO — G05.1 a G05.6 implementados e testados (automatizado + funcional ao vivo). Falta a validação final: Product Owner testando a tela de verdade em produção.
