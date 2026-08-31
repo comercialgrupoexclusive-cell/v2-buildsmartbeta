@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Budget, BudgetItem, BudgetMarkup, CreateBudgetItemInput, CreateBudgetMarkupInput } from './types';
+import type {
+  Budget, BudgetItem, BudgetMarkup, BudgetRevision, CostItem,
+  CreateBudgetItemInput, CreateBudgetMarkupInput, CreateCostItemInput,
+} from './types';
 
 type BudgetRow = { id: string; project_id: string; name: string; status: 'DRAFT' | 'APPROVED'; parent_budget_id: string | null };
 type ItemRow = {
@@ -7,6 +10,7 @@ type ItemRow = {
   description: string; unit: string | null; quantity: string; unit_price: string; position: number;
 };
 type MarkupRow = { id: string; budget_id: string; name: string; type: 'PERCENTAGE' | 'FIXED'; category: string | null; value: string };
+type CostItemRow = { id: string; organization_id: string; description: string; unit: string; type: 'MATERIAL' | 'LABOR' | 'SERVICE'; unit_price: string };
 
 function mapBudget(row: BudgetRow): Budget {
   return { id: row.id, projectId: row.project_id, name: row.name, status: row.status, parentBudgetId: row.parent_budget_id };
@@ -24,7 +28,30 @@ function mapMarkup(row: MarkupRow): BudgetMarkup {
   return { id: row.id, budgetId: row.budget_id, name: row.name, type: row.type, category: row.category, value: Number(row.value) };
 }
 
-export class SupabaseBudgetRepository {
+function mapCostItem(row: CostItemRow): CostItem {
+  return { id: row.id, organizationId: row.organization_id, description: row.description, unit: row.unit, type: row.type, unitPrice: Number(row.unit_price) };
+}
+
+export interface BudgetRepository {
+  getActiveBudget(projectId: string): Promise<Budget | null>;
+  getBudget(budgetId: string): Promise<Budget>;
+  createBudget(projectId: string, name: string, createdBy: string): Promise<Budget>;
+  listItems(budgetId: string): Promise<BudgetItem[]>;
+  addItem(input: CreateBudgetItemInput): Promise<BudgetItem>;
+  removeItem(itemId: string): Promise<void>;
+  listMarkups(budgetId: string): Promise<BudgetMarkup[]>;
+  addMarkup(input: CreateBudgetMarkupInput): Promise<BudgetMarkup>;
+  removeMarkup(markupId: string): Promise<void>;
+  approve(budgetId: string): Promise<Budget>;
+  getFinalTotal(budgetId: string): Promise<{ direct: number; final: number }>;
+  getProjectOrganizationId(projectId: string): Promise<string>;
+  listCostItems(organizationId: string): Promise<CostItem[]>;
+  createCostItem(input: CreateCostItemInput): Promise<CostItem>;
+  listRevisions(projectId: string): Promise<BudgetRevision[]>;
+  duplicateBudget(sourceBudgetId: string, name: string): Promise<Budget>;
+}
+
+export class SupabaseBudgetRepository implements BudgetRepository {
   constructor(private readonly client: SupabaseClient) {}
 
   async getActiveBudget(projectId: string): Promise<Budget | null> {
@@ -71,7 +98,7 @@ export class SupabaseBudgetRepository {
     const { data, error } = await this.client
       .from('budget_items')
       .insert({
-        budget_id: input.budgetId, parent_id: input.parentId,
+        budget_id: input.budgetId, parent_id: input.parentId, cost_item_id: input.costItemId ?? null,
         description: input.description, quantity: input.quantity, unit_price: input.unitPrice,
       })
       .select('id,budget_id,parent_id,cost_item_id,description,unit,quantity,unit_price,position')
@@ -124,5 +151,52 @@ export class SupabaseBudgetRepository {
     if (directError) throw directError;
     if (finalError) throw finalError;
     return { direct: Number(direct ?? 0), final: Number(final ?? 0) };
+  }
+
+  async getProjectOrganizationId(projectId: string): Promise<string> {
+    const { data, error } = await this.client.from('projects').select('organization_id').eq('id', projectId).single();
+    if (error) throw error;
+    return (data as { organization_id: string }).organization_id;
+  }
+
+  async listCostItems(organizationId: string): Promise<CostItem[]> {
+    const { data, error } = await this.client
+      .from('cost_items')
+      .select('id,organization_id,description,unit,type,unit_price')
+      .eq('organization_id', organizationId)
+      .order('description', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapCostItem(row as CostItemRow));
+  }
+
+  async createCostItem(input: CreateCostItemInput): Promise<CostItem> {
+    const { data, error } = await this.client
+      .from('cost_items')
+      .insert({
+        organization_id: input.organizationId, description: input.description, unit: input.unit,
+        type: input.type, unit_price: input.unitPrice, created_by: input.createdBy,
+      })
+      .select('id,organization_id,description,unit,type,unit_price')
+      .single();
+    if (error) throw error;
+    return mapCostItem(data as CostItemRow);
+  }
+
+  async listRevisions(projectId: string): Promise<BudgetRevision[]> {
+    const { data, error } = await this.client
+      .from('budgets')
+      .select('id,name,status,parent_budget_id,created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id, name: row.name, status: row.status, parentBudgetId: row.parent_budget_id, createdAt: row.created_at,
+    }));
+  }
+
+  async duplicateBudget(sourceBudgetId: string, name: string): Promise<Budget> {
+    const { data, error } = await this.client.rpc('duplicate_budget', { p_source_budget_id: sourceBudgetId, p_name: name });
+    if (error) throw error;
+    return mapBudget(data as BudgetRow);
   }
 }

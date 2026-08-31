@@ -1,5 +1,8 @@
-import type { SupabaseBudgetRepository } from './repository';
-import type { Budget, BudgetItem, BudgetMarkup, CreateBudgetItemInput, CreateBudgetMarkupInput } from './types';
+import type { BudgetRepository } from './repository';
+import type {
+  Budget, BudgetItem, BudgetMarkup, BudgetRevision, CostItem,
+  CreateBudgetItemInput, CreateBudgetMarkupInput, CreateCostItemInput,
+} from './types';
 
 export type BudgetItemNode = BudgetItem & { children: BudgetItemNode[] };
 
@@ -24,11 +27,25 @@ export function buildItemTree(items: BudgetItem[]): BudgetItemNode[] {
 }
 
 export class BudgetService {
-  constructor(private readonly repository: SupabaseBudgetRepository) {}
+  constructor(private readonly repository: BudgetRepository) {}
 
+  /**
+   * Retorna o Budget DRAFT ativo do Project. Se não houver DRAFT mas já existir
+   * histórico (ex: o único Budget está APPROVED), retorna o mais recente em vez
+   * de criar um novo silenciosamente - criar uma nova revisão é ação explícita
+   * do usuário (ver createRevision), nunca implícita no simples carregar a tela.
+   * Só cria um Budget novo quando o Project realmente não tem nenhum ainda.
+   */
   async getOrCreateActiveBudget(projectId: string, createdBy: string, defaultName: string): Promise<Budget> {
-    const existing = await this.repository.getActiveBudget(projectId);
-    if (existing) return existing;
+    const draft = await this.repository.getActiveBudget(projectId);
+    if (draft) return draft;
+
+    const revisions = await this.repository.listRevisions(projectId);
+    if (revisions.length > 0) {
+      const [latest] = revisions;
+      return this.repository.getBudget(latest!.id);
+    }
+
     return this.repository.createBudget(projectId, defaultName, createdBy);
   }
 
@@ -64,5 +81,28 @@ export class BudgetService {
 
   async getFinalTotal(budgetId: string): Promise<{ direct: number; final: number }> {
     return this.repository.getFinalTotal(budgetId);
+  }
+
+  async getProjectOrganizationId(projectId: string): Promise<string> {
+    return this.repository.getProjectOrganizationId(projectId);
+  }
+
+  async listCostItems(organizationId: string): Promise<CostItem[]> {
+    return this.repository.listCostItems(organizationId);
+  }
+
+  async createCostItem(input: CreateCostItemInput): Promise<CostItem> {
+    if (!input.description.trim()) throw new Error('Descrição é obrigatória.');
+    if (!input.unit.trim()) throw new Error('Unidade é obrigatória.');
+    return this.repository.createCostItem(input);
+  }
+
+  async listRevisions(projectId: string): Promise<BudgetRevision[]> {
+    return this.repository.listRevisions(projectId);
+  }
+
+  async createRevision(sourceBudgetId: string, name: string): Promise<Budget> {
+    if (!name.trim()) throw new Error('Nome da revisão é obrigatório.');
+    return this.repository.duplicateBudget(sourceBudgetId, name);
   }
 }
