@@ -131,9 +131,12 @@ O Product Owner testou a tela em produção e achou dois problemas reais:
 - Base de custos (`CostItem`) ganhou interface de verdade: seção "Avançado" no orçamento lista/cadastra itens de custo da Organization, e o formulário de adicionar item ganha um seletor pra puxar descrição/preço de um item de custo existente (continua editável).
 - Teste funcional real e descartável (transação com `ROLLBACK`): cadastro de item de custo → item de orçamento vinculado herda unidade/preço corretamente (100kg × R$0,85 = R$85) → aprovação → revisão mantém o vínculo com o `cost_item_id` original. Zero resíduo confirmado.
 
-## Comandos executados (consolidado, rodadas 1-5)
+### Rodada 6 — Polimento final
+- Tela de orçamento ganhou link "‹ Projetos" no cabeçalho fixo — não era mais possível voltar pra lista de projetos sem usar o botão do navegador.
+
+## Comandos executados (consolidado, rodadas 1-6)
 Lint, typecheck, build: limpos em todas as rodadas.
 Testes: 11 arquivos / 48 testes, todos passando.
 
 ## Autoavaliação do Gate
-PRONTO — G05.1 a G05.6 implementados, testados (automatizado + funcional ao vivo, incluindo um ciclo real de uso pelo Product Owner que revelou e corrigiu um bug de dado). Fluxo completo: cadastrar base de custos → montar orçamento em árvore → aplicar markup → aprovar → criar revisão quando precisar mudar algo depois de aprovado. Nada mais identificado como "casca vazia".
+PRONTO PARA REVISÃO — G05.1 a G05.6 implementados, testados (automatizado + funcional ao vivo, incluindo um ciclo real de uso pelo Product Owner que revelou e corrigiu um bug de dado). Fluxo completo: cadastrar base de custos → montar orçamento em árvore → aplicar markup → aprovar → criar revisão quando precisar mudar algo depois de aprovado. Nada mais identificado como "casca vazia". Declaração de PASS é decisão do Product Owner.
