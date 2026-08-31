@@ -99,7 +99,8 @@ export default function ProjectsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium">{project.status}</span>
-                  <Link className="rounded-lg border px-3 py-2 text-sm" href={`/projects/${project.id}/tasks`}>Abrir</Link>
+                  <Link className="rounded-lg border px-3 py-2 text-sm" href={`/projects/${project.id}/budget`}>Orçamento</Link>
+                  <Link className="rounded-lg border px-3 py-2 text-sm" href={`/projects/${project.id}/tasks`}>Tarefas</Link>
                 </div>
               </div>
             </article>
