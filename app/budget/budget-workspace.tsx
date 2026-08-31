@@ -213,6 +213,9 @@ export default function BudgetWorkspace({ projectId }: { projectId: string }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col pb-24">
       <div className="sticky top-0 z-10 border-b bg-white p-4">
+        <button type="button" className="mb-2 text-sm text-gray-500" onClick={() => router.push('/projects')}>
+          ‹ Projetos
+        </button>
         <p className="text-sm font-medium text-gray-500">{isDraft ? 'Rascunho' : 'Aprovado'}</p>
         <h1 className="text-xl font-bold">{budget.name}</h1>
         <p className="mt-1 text-2xl font-semibold">{formatMoney(totals.final)}</p>
