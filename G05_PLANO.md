@@ -68,6 +68,15 @@ O G05 **não implementa** Planejamento (G06), Execução/medição (G07), Suprim
 ### G05.5 — Testes
 - Testes automatizados cobrindo: cálculo de totais em árvore (nó pai soma filhos), aplicação de markup, isolamento por Organization (RLS), transição draft→approved bloqueando edição.
 
+### G05.6 — UX mobile-first
+Regra de aceite de tela, válida para toda UI deste Gate (não é módulo de dados, é critério de revisão):
+- 1 fluxo de usuário = 1–2 telas com 1 ação primária. Não criar "1 tela por tabela": a árvore de `BudgetItem` aparece como lista colapsável (toque expande/recolhe), não como formulário CRUD genérico exposto por tabela.
+- Nenhum formulário com mais de 4 campos visíveis por vez — parâmetros avançados (markup por categoria, preço manual vs. `CostItem`) ficam atrás de "Avançado", nunca bloqueando o fluxo principal de montar o orçamento.
+- Botão de ação primária (adicionar item, aprovar orçamento) sempre acessível no rodapé/polegar em mobile, não só no topo da tela.
+- Ambiente de referência é celular em campo — se uma tela só funciona bem em desktop, ela não está pronta para revisão deste Gate.
+
+Nota para quando a base de custos oficial (SINAPI) entrar em Gate futuro: o dataset CWICR do OpenConstructionERP é uma harmonização própria da DataDrivenConstruction, não é o SINAPI oficial da Caixa/IBGE, e tem licenciamento ambíguo — não usar como fonte de dado no Brasil. Registrado aqui como nota de arquitetura; não bloqueia o G05 (que não importa nenhuma base de custo pronta, só permite cadastro manual de `CostItem`).
+
 ---
 
 ## 5. O que NÃO fazer neste Gate
@@ -116,6 +125,7 @@ Não escrever `PASS` final no relatório por conta própria — depende de revis
 - [ ] lint, typecheck, test e build passam localmente e na CI;
 - [ ] nenhuma referência à estrutura fixa de etapas da V1;
 - [ ] nenhum dos itens da seção 5 foi antecipado;
+- [ ] telas atendem aos critérios de UX mobile-first da seção G05.6 (1-2 telas por fluxo, ≤4 campos visíveis, ação primária acessível no polegar);
 - [ ] `G05_RELATORIO.md` contém evidências suficientes para revisão.
 
 ---
